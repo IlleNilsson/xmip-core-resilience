@@ -2,6 +2,6 @@
 name = "xmip-resilience"
 version = "0.1.0"
 edition = "2024"
-license = "MIT"
+license = "AGPL-3.0-or-later"
 repository = "https://github.com/IlleNilsson/xmip-resilience"
 description = "Retry, timeout, circuit breaker, fallback and rate limiting contracts for Xmip."
