@@ -2,9 +2,9 @@
 [workspace]
 
 [package]
-name = "xmip-resilience"
+name = "xmip-core-resilience"
 version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/IlleNilsson/xmip-resilience"
+repository = "https://github.com/IlleNilsson/xmip-core-resilience"
 description = "Retry, timeout, circuit breaker, fallback and rate limiting contracts for Xmip."
