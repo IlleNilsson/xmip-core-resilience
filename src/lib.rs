@@ -1,5 +1,13 @@
 #![forbid(unsafe_code)]
 
+//! Retry, timeout, circuit breaker, rate limit, bulkhead and fallback: the
+//! policy that names them, and the guard trait the six technologies implement
+//! (ADR-0048).
+
+mod guard;
+
+pub use guard::{Attempt, Decision, Failure, Guard, Guarded, execute};
+
 use std::time::Duration;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
