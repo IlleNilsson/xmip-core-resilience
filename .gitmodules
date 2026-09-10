@@ -1,0 +1,18 @@
+[submodule "xmip-core-resilience-bulkhead"]
+	path = bulkhead
+	url = https://github.com/IlleNilsson/xmip-core-resilience-bulkhead.git
+[submodule "xmip-core-resilience-circuit-breaker"]
+	path = circuit-breaker
+	url = https://github.com/IlleNilsson/xmip-core-resilience-circuit-breaker.git
+[submodule "xmip-core-resilience-fallback"]
+	path = fallback
+	url = https://github.com/IlleNilsson/xmip-core-resilience-fallback.git
+[submodule "xmip-core-resilience-rate-limit"]
+	path = rate-limit
+	url = https://github.com/IlleNilsson/xmip-core-resilience-rate-limit.git
+[submodule "xmip-core-resilience-retry"]
+	path = retry
+	url = https://github.com/IlleNilsson/xmip-core-resilience-retry.git
+[submodule "xmip-core-resilience-timeout"]
+	path = timeout
+	url = https://github.com/IlleNilsson/xmip-core-resilience-timeout.git
