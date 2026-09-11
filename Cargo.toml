@@ -8,3 +8,7 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/IlleNilsson/xmip-core-resilience"
 description = "Retry, timeout, circuit breaker, fallback and rate limiting contracts for Xmip."
+
+[lib]
+# A host crate: the technologies mount beside this source (ADR-0049).
+path = ".src/lib.rs"
