@@ -10,5 +10,5 @@ Each guard is a technology beneath this capability (ADR-0048):
 Retry   Timeout   Circuit Breaker   Fallback   Rate Limiting   Bulkhead
 ```
 
-Handlers report Success, Retryable Failure or Non-retryable Failure and own no
-retry loop; the rule is `doc/architecture/runtime-model.md`, section 15.
+What a Handler reports to these guards, and why it owns no retry loop of its
+own, is the estate's rule: `doc/architecture/runtime-model.md`, section 15.
