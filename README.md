@@ -1,5 +1,7 @@
 # xmip-core-resilience
-Provides retry, timeout, circuit breaker, fallback and rate-limit capabilities.
+
+Provides retry, timeout, circuit breaker, fallback, rate-limit and bulkhead
+capabilities.
 
 ## Scope
 
