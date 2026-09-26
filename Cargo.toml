@@ -12,3 +12,6 @@ description = "Retry, timeout, circuit breaker, fallback and rate limiting contr
 [lib]
 # A host crate: the technologies mount beside this source (ADR-0049).
 path = ".src/lib.rs"
+
+[profile.dev.package."*"]
+opt-level = 3
