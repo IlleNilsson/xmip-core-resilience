@@ -14,45 +14,7 @@
 
 use std::time::{Duration, Instant};
 
-use crate::FailureKind;
-
-/// Why an attempt failed, and whether trying again could change that.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Failure {
-    pub kind: FailureKind,
-    pub reason: String,
-}
-
-impl Failure {
-    #[must_use]
-    pub fn retryable(reason: impl Into<String>) -> Self {
-        Self {
-            kind: FailureKind::Retryable,
-            reason: reason.into(),
-        }
-    }
-
-    #[must_use]
-    pub fn permanent(reason: impl Into<String>) -> Self {
-        Self {
-            kind: FailureKind::NonRetryable,
-            reason: reason.into(),
-        }
-    }
-
-    #[must_use]
-    pub const fn is_retryable(&self) -> bool {
-        matches!(self.kind, FailureKind::Retryable)
-    }
-}
-
-impl std::fmt::Display for Failure {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.reason)
-    }
-}
-
-impl std::error::Error for Failure {}
+use xcore::Failure;
 
 /// One attempt as a guard sees it: which one it was, how long it took, and
 /// whether it failed. The value is not a guard's business.
@@ -173,7 +135,7 @@ mod tests {
 
         fn after(&self, attempt: &Attempt) -> Decision {
             match &attempt.failure {
-                Some(failure) if failure.is_retryable() && attempt.number < self.0 => {
+                Some(failure) if failure.retryable && attempt.number < self.0 => {
                     Decision::Wait(Duration::ZERO)
                 }
                 _ => Decision::Proceed,
@@ -282,8 +244,11 @@ mod tests {
         assert_eq!(attempts[0].number, 1);
         assert!(!attempts[0].succeeded());
         assert_eq!(
-            attempts[0].failure.as_ref().map(ToString::to_string),
-            Some("no".into())
+            attempts[0]
+                .failure
+                .as_ref()
+                .map(|failure| failure.message.as_str()),
+            Some("no")
         );
     }
 }
