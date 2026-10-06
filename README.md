@@ -1,7 +1,15 @@
 # xmip-core-resilience
 
 Provides retry, timeout, circuit breaker, fallback, rate-limit and bulkhead
-capabilities.
+capabilities. The guards are
+[built, not in the assembled service](../../../../doc/architecture/estate-map.md#resilience-guards): the Event
+forwarder runs them for the http, amqp and kafka Event wires, only tests
+build one, and a Message send does not ask them — its Send Port's own retry
+is what it has ([built, in the assembled service](../../../../doc/architecture/estate-map.md#send-port-retry)).
+Guards an operator configures on a Send Port Group, Send Port and Send
+Location, and a timeout that interrupts an attempt, are
+[decided, not built](../../../../doc/architecture/estate-map.md#send-resilience) (ADR-0048, amendments
+2026-10-06); the timeout here judges an attempt after it ended.
 
 ## Scope
 
