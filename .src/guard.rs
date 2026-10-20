@@ -8,7 +8,7 @@
 //! rate limit, bulkhead and fallback are six guards with those two questions
 //! each; [`execute`] asks them in order and does what they say.
 //!
-//! The platform owns the loop; a technology owns one judgement. A guard never
+//! The platform owns the loop; a technology owns one judgment. A guard never
 //! runs the operation and never sees its value, only whether it failed and
 //! how long it took.
 
@@ -46,7 +46,7 @@ pub enum Decision {
     Fallback,
 }
 
-/// A resilience technology: one judgement, asked before and after an attempt.
+/// A resilience technology: one judgment, asked before and after an attempt.
 pub trait Guard: Send + Sync {
     /// The manifest leaf: `retry`, `timeout`, `circuit-breaker`, `rate-limit`,
     /// `bulkhead`, `fallback`.
