@@ -25,7 +25,7 @@ own, is the estate's rule: `doc/architecture/runtime-model.md`, section 15.
 
 ## The surface
 
-`Guard` is the technology's one judgement, asked before and after each
+`Guard` is the technology's one judgment, asked before and after each
 attempt; `execute` asks the guards in order and does what they say. What an
 attempt failed with is `xcore::Failure`, the estate's one retryable failure
 (ADR-0037, amendment 2026-09-27): whether trying again could help is the
