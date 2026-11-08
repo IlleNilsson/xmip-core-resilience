@@ -26,7 +26,11 @@ own, is the estate's rule: `doc/architecture/runtime-model.md`, section 15.
 ## The surface
 
 `Guard` is the technology's one judgment, asked before and after each
-attempt; `execute` asks the guards in order and does what they say. What an
+attempt; `execute` asks the guards in order and does what they say. After
+an attempt every guard is asked, whatever the ones before it said, and the
+first that does not say proceed decides; before one, every guard is asked
+until one refuses or falls back, which decides, and otherwise the attempt
+goes after the longest wait asked for (ADR-0048, amendment 2026-11-08). What an
 attempt failed with is `xcore::Failure`, the estate's one retryable failure
 (ADR-0037, amendment 2026-09-27): whether trying again could help is the
 failure's own property, decided where it was met, and a guard reads it.

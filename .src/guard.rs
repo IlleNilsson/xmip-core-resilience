@@ -71,8 +71,17 @@ pub enum Guarded<T> {
 }
 
 /// Attempt `operation` under `guards`, in the order given, until a guard or
-/// the outcome ends it. Every guard is asked before every attempt and after
-/// it; the first that does not say proceed decides.
+/// the outcome ends it.
+///
+/// **Before an attempt** every guard is asked, in order, until one refuses
+/// or falls back: that one decides, and no guard after it is admitted to an
+/// attempt that will not happen. Otherwise the attempt goes after the
+/// longest wait any guard asked for, so each guard's wait is kept.
+///
+/// **After an attempt** every guard is asked, in order, whatever the ones
+/// before it said — a bulkhead frees its slot and a circuit breaker counts
+/// the failure behind a retry that asks for another try — and the first
+/// that does not say proceed decides.
 ///
 /// # Errors
 /// The last attempt failed and no guard asked for another.
@@ -83,7 +92,7 @@ pub fn execute<T>(
     let mut number = 1;
 
     loop {
-        match first_not_proceeding(guards.iter().map(|guard| guard.before(number))) {
+        match admitted(guards, number) {
             Decision::Proceed => {}
             Decision::Wait(delay) => std::thread::sleep(delay),
             Decision::Refuse(reason) => return Ok(Guarded::Refused(reason)),
@@ -98,7 +107,7 @@ pub fn execute<T>(
             failure: result.as_ref().err().cloned(),
         };
 
-        match first_not_proceeding(guards.iter().map(|guard| guard.after(&attempt))) {
+        match judged(guards, &attempt) {
             Decision::Proceed => return result.map(Guarded::Done),
             Decision::Wait(delay) => {
                 std::thread::sleep(delay);
@@ -110,16 +119,38 @@ pub fn execute<T>(
     }
 }
 
-fn first_not_proceeding(mut decisions: impl Iterator<Item = Decision>) -> Decision {
-    decisions
-        .find(|decision| *decision != Decision::Proceed)
-        .unwrap_or(Decision::Proceed)
+/// Every guard asked before attempt `number`, in order, until one refuses
+/// or falls back, which decides; otherwise the longest wait, or proceed.
+fn admitted(guards: &[&dyn Guard], number: u32) -> Decision {
+    let mut longest: Option<Duration> = None;
+    for guard in guards {
+        match guard.before(number) {
+            Decision::Proceed => {}
+            Decision::Wait(delay) => longest = longest.max(Some(delay)),
+            ended @ (Decision::Refuse(_) | Decision::Fallback) => return ended,
+        }
+    }
+    longest.map_or(Decision::Proceed, Decision::Wait)
+}
+
+/// Every guard asked after `attempt`, in order, each one whatever the
+/// others said; the first that does not say proceed decides.
+fn judged(guards: &[&dyn Guard], attempt: &Attempt) -> Decision {
+    let mut decided = Decision::Proceed;
+    for guard in guards {
+        let decision = guard.after(attempt);
+        if decided == Decision::Proceed {
+            decided = decision;
+        }
+    }
+    decided
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::cell::Cell;
+    use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
     /// Tries again on a retryable failure, up to a count.
     struct Again(u32);
@@ -219,6 +250,103 @@ mod tests {
         });
         assert_eq!(fell_back, Ok(Guarded::Fallback));
         assert_eq!(calls.get(), 2, "retry went first and ran out");
+    }
+
+    /// A slot taken before each attempt and freed after it, refused while
+    /// taken: a bulkhead of one.
+    #[derive(Default)]
+    struct Slot {
+        taken: AtomicBool,
+        asked_after: AtomicU32,
+    }
+
+    impl Slot {
+        fn taken(&self) -> bool {
+            self.taken.load(Ordering::Relaxed)
+        }
+    }
+
+    impl Guard for Slot {
+        fn technology(&self) -> &'static str {
+            "bulkhead"
+        }
+
+        fn before(&self, _: u32) -> Decision {
+            if self.taken.swap(true, Ordering::Relaxed) {
+                Decision::Refuse("the slot is taken".into())
+            } else {
+                Decision::Proceed
+            }
+        }
+
+        fn after(&self, _: &Attempt) -> Decision {
+            self.taken.store(false, Ordering::Relaxed);
+            self.asked_after.fetch_add(1, Ordering::Relaxed);
+            Decision::Proceed
+        }
+    }
+
+    /// Waits before every attempt.
+    struct Paced(Duration);
+
+    impl Guard for Paced {
+        fn technology(&self) -> &'static str {
+            "rate-limit"
+        }
+
+        fn before(&self, _: u32) -> Decision {
+            Decision::Wait(self.0)
+        }
+
+        fn after(&self, _: &Attempt) -> Decision {
+            Decision::Proceed
+        }
+    }
+
+    #[test]
+    fn a_guard_behind_a_retry_sees_every_attempt_it_asks_again_after() {
+        // The retry's wait ended the asking: the slot behind it was never
+        // freed, and the second attempt was refused for it.
+        let slot = Slot::default();
+        let guards: [&dyn Guard; 2] = [&Again(3), &slot];
+        let calls = Cell::new(0);
+        let outcome = execute(&guards, || {
+            calls.set(calls.get() + 1);
+            if calls.get() < 3 {
+                Err(Failure::retryable("again"))
+            } else {
+                Ok("done")
+            }
+        });
+        assert_eq!(outcome, Ok(Guarded::Done("done")));
+        assert_eq!(
+            (calls.get(), slot.asked_after.load(Ordering::Relaxed)),
+            (3, 3)
+        );
+        assert!(!slot.taken(), "freed after the last attempt");
+    }
+
+    #[test]
+    fn a_guard_behind_a_wait_is_asked_before_the_attempt_and_the_longest_wait_kept() {
+        // The wait ended the asking: the slot behind it was never taken
+        // before the attempt, and freed after it all the same.
+        let slot = Slot::default();
+        let guards: [&dyn Guard; 3] = [
+            &Paced(Duration::from_millis(1)),
+            &slot,
+            &Paced(Duration::from_millis(3)),
+        ];
+        let started = Instant::now();
+        let outcome = execute(&guards, || {
+            assert!(slot.taken(), "the slot is taken for the attempt");
+            Ok(1)
+        });
+        assert_eq!(outcome, Ok(Guarded::Done(1)));
+        assert!(started.elapsed() >= Duration::from_millis(3), "the longest");
+        assert_eq!(
+            admitted(&[&Paced(Duration::ZERO), &Shut], 1),
+            Decision::Refuse("open".into())
+        );
     }
 
     #[test]
