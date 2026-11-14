@@ -107,7 +107,7 @@ pub fn execute<T>(
             failure: result.as_ref().err().cloned(),
         };
 
-        match judged(guards, &attempt) {
+        match judged(guards.iter().copied(), &attempt) {
             Decision::Proceed => return result.map(Guarded::Done),
             Decision::Wait(delay) => {
                 std::thread::sleep(delay);
@@ -134,8 +134,15 @@ fn admitted(guards: &[&dyn Guard], number: u32) -> Decision {
 }
 
 /// Every guard asked after `attempt`, in order, each one whatever the
-/// others said; the first that does not say proceed decides.
-fn judged(guards: &[&dyn Guard], attempt: &Attempt) -> Decision {
+/// others said; the first that does not say proceed decides. What
+/// [`execute`] asks after each attempt, and what a caller that keeps no
+/// thread waiting between attempts asks itself: the runtime's send step,
+/// which keeps a retry's due time in Xmip Storage instead (ADR-0048,
+/// amendment 2026-11-14).
+pub fn judged<'g, G: Guard + ?Sized + 'g>(
+    guards: impl IntoIterator<Item = &'g G>,
+    attempt: &Attempt,
+) -> Decision {
     let mut decided = Decision::Proceed;
     for guard in guards {
         let decision = guard.after(attempt);
@@ -346,6 +353,33 @@ mod tests {
         assert_eq!(
             admitted(&[&Paced(Duration::ZERO), &Shut], 1),
             Decision::Refuse("open".into())
+        );
+    }
+
+    #[test]
+    fn judged_asks_each_guard_held_in_a_box_whatever_the_first_decided() {
+        // As the runtime's send step holds a Send Port's guards, asking
+        // after each try and keeping no thread waiting between them.
+        let held: Vec<Box<dyn Guard>> = vec![Box::new(Again(2)), Box::new(Slot::default())];
+        let failed = |number| Attempt {
+            number,
+            elapsed: Duration::ZERO,
+            failure: Some(Failure::retryable("again")),
+        };
+        assert_eq!(held[1].before(1), Decision::Proceed, "the slot taken");
+        assert_eq!(
+            judged(held.iter().map(AsRef::as_ref), &failed(1)),
+            Decision::Wait(Duration::ZERO)
+        );
+        assert_eq!(
+            held[1].before(2),
+            Decision::Proceed,
+            "freed behind the wait"
+        );
+        assert_eq!(
+            judged(held.iter().map(AsRef::as_ref), &failed(2)),
+            Decision::Proceed,
+            "the last try stands"
         );
     }
 

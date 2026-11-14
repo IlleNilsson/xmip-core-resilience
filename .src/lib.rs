@@ -8,4 +8,4 @@
 
 mod guard;
 
-pub use guard::{Attempt, Decision, Guard, Guarded, execute};
+pub use guard::{Attempt, Decision, Guard, Guarded, execute, judged};
