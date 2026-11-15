@@ -39,3 +39,10 @@ goes after the longest wait asked for (ADR-0048, amendment 2026-11-08). What an
 attempt failed with is `xcore::Failure`, the estate's one retryable failure
 (ADR-0037, amendment 2026-09-27): whether trying again could help is the
 failure's own property, decided where it was met, and a guard reads it.
+
+A guard that decides on time counts it on the monotonic reading of the
+Clock it is handed (`xcore::Clock`): the circuit breaker its open period,
+the rate limit its refill, so a test steps the one test clock,
+`xcore::clock::Stepped`, past the edge rather than sleeping. `execute`'s
+wait for what a guard asked is real time (ADR-0068, amendment
+2026-11-15).
